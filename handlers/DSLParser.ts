@@ -18,7 +18,7 @@ export class DSLParser {
     ) {}
 
     parse() {
-        const scriptTrimmed = this.script.trim().replace(/\n+/g, " "); // Normalize multi-line input
+        const scriptTrimmed = this.script.trim().replace(/\n+/g, " "); // Keep existing logic
         console.log(`📜 Processed script: ${scriptTrimmed}`);
 
         const commandRegex = /^(\w+)\s+(.+)$/; // Match command and arguments
@@ -46,6 +46,12 @@ export class DSLParser {
                 type: "CREATE_USER",
                 args: [username, name, email],
             });
+        } else if (cmd === "CREATE_CHANNEL" && args.length >= 2) {
+            const [channelName, ...members] = args;
+            this.commands.push({
+                type: "CREATE_CHANNEL",
+                args: [channelName, ...members],
+            });
         } else {
             console.error(`❌ Invalid ${cmd} command format: ${scriptTrimmed}`);
         }
@@ -56,15 +62,12 @@ export class DSLParser {
             if (command.type === "CREATE_USER") {
                 const [username, name, email] = command.args;
                 await this.createUser(username, name, email);
+            } else if (command.type === "CREATE_CHANNEL") {
+                const [channelName, ...members] = command.args;
+                await this.createChannel(channelName, members);
             }
         }
     }
-
-    // private http: IHttp;
-
-    // setHttp(http: IHttp) {
-    //     this.http = http;
-    // }
 
     private async createUser(username: string, name: string, email: string) {
         const payload = {
@@ -92,11 +95,7 @@ export class DSLParser {
             const response = await this.http.post(
                 `${ROCKET_CHAT_URL}/api/v1/users.create`,
                 {
-                    headers: {
-                        "X-Auth-Token": ADMIN_AUTH_TOKEN,
-                        "X-User-Id": ADMIN_USER_ID,
-                        "Content-Type": "application/json",
-                    },
+                    headers: this.getHeaders(),
                     data: payload,
                 }
             );
@@ -122,6 +121,53 @@ export class DSLParser {
             );
         }
     }
+
+    private async createChannel(channelName: string, members: string[]) {
+        const payload = {
+            name: channelName,
+            members: members,
+            readOnly: false,
+            excludeSelf: false,
+            customFields: {
+                type: "default",
+            },
+            extraData: {
+                broadcast: true,
+                encrypted: false,
+            },
+        };
+
+        try {
+            const response = await this.http.post(
+                `${ROCKET_CHAT_URL}/api/v1/channels.create`,
+                {
+                    headers: this.getHeaders(),
+                    data: payload,
+                }
+            );
+
+            await this.sendMessage(
+                `making request to ${ROCKET_CHAT_URL}/api/v1/channels.create`
+            );
+
+            if (response.statusCode === 200 && response.data.success) {
+                await this.sendMessage(
+                    `✅ Channel ${channelName} created successfully!`
+                );
+            } else {
+                await this.sendMessage(
+                    `⚠️ Channel ${channelName} creation failed: ${response.content}`
+                );
+            }
+        } catch (error: any) {
+            await this.sendMessage(
+                `❌ Failed to create channel ${channelName}: ${
+                    error.response?.data || error.message
+                }`
+            );
+        }
+    }
+
     private async sendMessage(message: string) {
         const messageStructure = this.modify.getCreator().startMessage();
         const sender = this.context.getSender();
@@ -130,5 +176,13 @@ export class DSLParser {
         messageStructure.setSender(sender).setRoom(room).setText(message);
 
         await this.modify.getCreator().finish(messageStructure);
+    }
+
+    private getHeaders() {
+        return {
+            "X-Auth-Token": ADMIN_AUTH_TOKEN,
+            "X-User-Id": ADMIN_USER_ID,
+            "Content-Type": "application/json",
+        };
     }
 }
