@@ -1,0 +1,16 @@
+{
+    "id": "faf34eaf-f883-45a1-ae0b-7da3eb3c5e58",
+    "version": "0.0.1",
+    "requiredApiVersion": "^1.44.0",
+    "iconFile": "icon.png",
+    "author": {
+        "name": "Pratik Chandra Pal",
+        "homepage": "https://github.com/Pratik-050",
+        "support": "https://github.com/Pratik-050"
+    },
+    "name": "server-setup-agent",
+    "nameSlug": "server-setup-agent",
+    "classFile": "ServerSetupAgentApp.ts",
+    "description": "A rc app to create servers seamlessly",
+    "implements": []
+}
