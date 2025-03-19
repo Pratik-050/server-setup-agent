@@ -1,5 +1,6 @@
 import { IHttp, IModify } from "@rocket.chat/apps-engine/definition/accessors";
 import { SlashCommandContext } from "@rocket.chat/apps-engine/definition/slashcommands";
+import { fetchRoomId } from "../helpers/fetchRoomId";
 
 const ROCKET_CHAT_URL = "http://localhost:3000";
 const ADMIN_USER_ID = "EgqsQDfA5zGrYhQYr";
@@ -177,19 +178,7 @@ export class DSLParser {
     private async addAllUsersToChannel(channelName: string) {
         try {
             // 🔹 Fetch roomId from /api/v1/rooms.info
-            const roomResponse = await this.http.get(
-                `${ROCKET_CHAT_URL}/api/v1/rooms.info?roomName=${channelName}`,
-                { headers: this.getHeaders() }
-            );
-
-            if (roomResponse.statusCode !== 200 || !roomResponse.data.success) {
-                await this.sendMessage(
-                    `⚠️ Failed to fetch roomId for ${channelName}: ${roomResponse.content}`
-                );
-                return;
-            }
-
-            const roomId = roomResponse.data.room._id; // Extract roomId
+            const roomId = await fetchRoomId(this.http, channelName);
 
             // 🔹 Make request to add all users
             const payload = { roomId, activeUsersOnly: true };
