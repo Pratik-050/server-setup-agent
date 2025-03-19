@@ -52,6 +52,9 @@ export class DSLParser {
                 type: "CREATE_CHANNEL",
                 args: [channelName, ...members],
             });
+        } else if (cmd === "ADD_ALL_USERS" && args.length === 1) {
+            const [channelName] = args;
+            this.commands.push({ type: "ADD_ALL_USERS", args: [channelName] });
         } else {
             console.error(`❌ Invalid ${cmd} command format: ${scriptTrimmed}`);
         }
@@ -65,6 +68,9 @@ export class DSLParser {
             } else if (command.type === "CREATE_CHANNEL") {
                 const [channelName, ...members] = command.args;
                 await this.createChannel(channelName, members);
+            } else if (command.type === "ADD_ALL_USERS") {
+                const [channelName] = command.args;
+                await this.addAllUsersToChannel(channelName);
             }
         }
     }
@@ -162,6 +168,56 @@ export class DSLParser {
         } catch (error: any) {
             await this.sendMessage(
                 `❌ Failed to create channel ${channelName}: ${
+                    error.response?.data || error.message
+                }`
+            );
+        }
+    }
+
+    private async addAllUsersToChannel(channelName: string) {
+        try {
+            // 🔹 Fetch roomId from /api/v1/rooms.info
+            const roomResponse = await this.http.get(
+                `${ROCKET_CHAT_URL}/api/v1/rooms.info?roomName=${channelName}`,
+                { headers: this.getHeaders() }
+            );
+
+            if (roomResponse.statusCode !== 200 || !roomResponse.data.success) {
+                await this.sendMessage(
+                    `⚠️ Failed to fetch roomId for ${channelName}: ${roomResponse.content}`
+                );
+                return;
+            }
+
+            const roomId = roomResponse.data.room._id; // Extract roomId
+
+            // 🔹 Make request to add all users
+            const payload = { roomId, activeUsersOnly: true };
+
+            const addUsersResponse = await this.http.post(
+                `${ROCKET_CHAT_URL}/api/v1/channels.addAll`,
+                { headers: this.getHeaders(), data: payload }
+            );
+
+            await this.sendMessage(
+                `making request to ${ROCKET_CHAT_URL}/api/v1/channels.addAll`
+            );
+
+            if (
+                addUsersResponse.statusCode === 200 &&
+                addUsersResponse.data.success
+            ) {
+                await this.sendMessage(
+                    `✅ Added all users to channel ${channelName} successfully!`
+                );
+            } else {
+                await this.sendMessage(
+                    `⚠️ Failed to add users to channel ${channelName}: ${addUsersResponse.content}`
+                );
+            }
+        } catch (error: any) {
+            await this.sendMessage(
+                `❌ Failed to add all users to channel ${channelName}: ${
                     error.response?.data || error.message
                 }`
             );
