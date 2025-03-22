@@ -8,6 +8,7 @@ import {
     SlashCommandContext,
 } from "@rocket.chat/apps-engine/definition/slashcommands";
 import { DSLParser } from "../handlers/DSLParser";
+import { CommandParam } from "../enum/CommandParam";
 
 export class SetupCommand implements ISlashCommand {
     public command = "setup";
@@ -21,53 +22,37 @@ export class SetupCommand implements ISlashCommand {
         modify: IModify,
         http: IHttp
     ): Promise<void> {
-        const [subcommand, ...scriptLines] = context.getArguments();
-
-        if (!subcommand) {
-            throw new Error("Error!");
+        const params = context.getArguments();
+        console.log(`🚀 Running setup command with params: ${params}`);
+        if (params.length === 0) {
+            await this.sendMessage(context, modify, "No script provided!");
+            return;
         }
 
-        switch (subcommand) {
-            case "server":
-                await this.sendMessage(context, modify, "running!");
-                break;
+        if (params[0] == CommandParam.ALIVE) {
+            await this.sendMessage(context, modify, "running!");
+        }
+        if (params[0] == CommandParam.RUN) {
+            const scriptLines = params.slice(1);
+            if (scriptLines.length === 0) {
+                await this.sendMessage(context, modify, "No script provided!");
+                return;
+            }
 
-            case "run":
-                if (scriptLines.length === 0) {
-                    await this.sendMessage(
-                        context,
-                        modify,
-                        "No script provided!"
-                    );
-                    return;
-                }
+            const script = scriptLines.join("\n");
+            await this.sendMessage(context, modify, "Running given script!");
 
-                const script = scriptLines.join("\n");
+            try {
+                const parser = new DSLParser(script, http, modify, context);
+                await parser.parse();
+                await parser.execute();
+            } catch (error) {
                 await this.sendMessage(
                     context,
                     modify,
-                    "Running given script!"
+                    `Error: ${error.message}`
                 );
-
-                try {
-                    const parser = new DSLParser(script, http, modify, context);
-                    await parser.parse();
-                    await parser.execute();
-                } catch (error) {
-                    await this.sendMessage(
-                        context,
-                        modify,
-                        `Error: ${error.message}`
-                    );
-                }
-                break;
-
-            case "call":
-                console.log("Calling!");
-                break;
-
-            default:
-                throw new Error("Error!");
+            }
         }
     }
 

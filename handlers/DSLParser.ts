@@ -1,6 +1,7 @@
 import { IHttp, IModify } from "@rocket.chat/apps-engine/definition/accessors";
 import { SlashCommandContext } from "@rocket.chat/apps-engine/definition/slashcommands";
 import { fetchRoomId } from "../helpers/fetchRoomId";
+import { CommandParam } from "../enum/CommandParam";
 
 const ROCKET_CHAT_URL = "http://localhost:3000";
 const ADMIN_USER_ID = "EgqsQDfA5zGrYhQYr";
@@ -19,7 +20,7 @@ export class DSLParser {
     ) {}
 
     parse() {
-        const scriptTrimmed = this.script.trim().replace(/\n+/g, " "); // Keep existing logic
+        const scriptTrimmed = this.script.trim().replace(/\n+/g, " ");
         console.log(`📜 Processed script: ${scriptTrimmed}`);
 
         const commandRegex = /^(\w+)\s+(.+)$/; // Match command and arguments
@@ -41,21 +42,24 @@ export class DSLParser {
 
         console.log(`✅ Parsed command: ${cmd}, args: ${JSON.stringify(args)}`);
 
-        if (cmd === "CREATE_USER" && args.length >= 3) {
+        if (cmd === CommandParam.CREATE_USER && args.length >= 3) {
             const [username, name, email] = args;
             this.commands.push({
-                type: "CREATE_USER",
+                type: CommandParam.CREATE_USER,
                 args: [username, name, email],
             });
-        } else if (cmd === "CREATE_CHANNEL" && args.length >= 2) {
+        } else if (cmd === CommandParam.CREATE_CHANNEL && args.length >= 2) {
             const [channelName, ...members] = args;
             this.commands.push({
-                type: "CREATE_CHANNEL",
+                type: CommandParam.CREATE_CHANNEL,
                 args: [channelName, ...members],
             });
-        } else if (cmd === "ADD_ALL_USERS" && args.length === 1) {
+        } else if (cmd === CommandParam.ADD_ALL_USERS && args.length === 1) {
             const [channelName] = args;
-            this.commands.push({ type: "ADD_ALL_USERS", args: [channelName] });
+            this.commands.push({
+                type: CommandParam.ADD_ALL_USERS,
+                args: [channelName],
+            });
         } else {
             console.error(`❌ Invalid ${cmd} command format: ${scriptTrimmed}`);
         }
@@ -63,13 +67,13 @@ export class DSLParser {
 
     async execute() {
         for (const command of this.commands) {
-            if (command.type === "CREATE_USER") {
+            if (command.type === CommandParam.CREATE_USER) {
                 const [username, name, email] = command.args;
                 await this.createUser(username, name, email);
-            } else if (command.type === "CREATE_CHANNEL") {
+            } else if (command.type === CommandParam.CREATE_CHANNEL) {
                 const [channelName, ...members] = command.args;
                 await this.createChannel(channelName, members);
-            } else if (command.type === "ADD_ALL_USERS") {
+            } else if (command.type === CommandParam.ADD_ALL_USERS) {
                 const [channelName] = command.args;
                 await this.addAllUsersToChannel(channelName);
             }
@@ -177,10 +181,10 @@ export class DSLParser {
 
     private async addAllUsersToChannel(channelName: string) {
         try {
-            // 🔹 Fetch roomId from /api/v1/rooms.info
+            // Fetch roomId from /api/v1/rooms.info
             const roomId = await fetchRoomId(this.http, channelName);
 
-            // 🔹 Make request to add all users
+            //Make request to add all users
             const payload = { roomId, activeUsersOnly: true };
 
             const addUsersResponse = await this.http.post(
